@@ -283,7 +283,43 @@ public final class DoseStore {
     ///
     /// *Access should be isolated to a managed object context block*
     private var areReservoirValuesValid = false
-
+    
+    
+    // MARK: - Delivery Measurement Data
+    
+    /// The last-created measurement delivery object.
+    private var lastStoredDeliveryMeasurementValue: StoredDeliveryMeasurementValue? {
+        get {
+            return lockedLastStoredDeliveryMeasurementValue.value
+        }
+        set {
+            lockedLastStoredDeliveryMeasurementValue.value = newValue
+        }
+    }
+    private let lockedLastStoredDeliveryMeasurementValue = Locked<StoredDeliveryMeasurementValue?>(nil)
+    
+    // The last-saved delivery measurement value
+    public var lastDeliveryMeasurementValue: DeliveryMeasurementValue? {
+        return lastStoredDeliveryMeasurementValue
+    }
+    
+    /// An incremental cache of temp basal doses based on delivery measurement records, used to avoid repeated work.
+    ///
+    /// *Access should be isolated to a managed object context block*
+    private var recentDeliveryMeasurementNormalizedDoseEntriesCache: [DoseEntry]?
+    
+    /**
+     *This method should only be called from within a managed object context block.*
+     */
+    private func clearDeliveryMeasurementNormalizedDoseCache() {
+        recentDeliveryMeasurementNormalizedDoseEntriesCache = nil
+    }
+    
+    /// Whether the current recent state of the stored delivery measurments is considered
+    /// continuous and reliable for the derivation of insulin effects
+    ///
+    /// *Access should be isolated to a managed object context block*
+    private var areDeliveryMeasurementsValid = false
 
     // MARK: - Pump Event Data
 
@@ -541,7 +577,7 @@ extension DoseStore {
     /// - Parameters:
     ///   - start: The earliest date of entries to include
     ///   - end: The latest date of entries to include, defaulting to the distant future.
-    /// - Returns: An array of normalizd entries
+    /// - Returns: An array of normalized entries
     /// - Throws: A DoseStoreError describing a failure
     private func getNormalizedReservoirDoseEntries(start: Date, end: Date? = nil) throws -> [DoseEntry] {
         if let normalizedDoses = self.recentReservoirNormalizedDoseEntriesCache, let firstDoseDate = normalizedDoses.first?.startDate, firstDoseDate <= start {
@@ -559,6 +595,7 @@ extension DoseStore {
         }
     }
 
+    
     /**
      Deletes a persisted reservoir value
 
@@ -642,6 +679,291 @@ extension DoseStore {
     }
 }
 
+
+// MARK: - DeliveryMeasurement Operations
+extension DoseStore {
+    /// Validates the current delivery data for reliability in glucose effect calculation at the specified date
+    ///
+    /// *This method should only be called from within a managed object context block.*
+    ///
+    /// - Parameter date: The date to base the continuity calculation on. Defaults to now.
+    /// - Returns: The array of delivery data used in the calculation
+    @discardableResult
+    private func validateDeliveryMeasurementContinuity(at date: Date = Date()) -> [DeliveryMeasurement] {
+        if let insulinModel = insulinModel {
+            // Consider any entries longer than 30 minutes, or with a value of 0, to be unreliable
+            let maximumInterval = TimeInterval(minutes: 30)
+            let continuityStartDate = date.addingTimeInterval(-insulinModel.effectDuration)
+            
+            if  let recentDeliveryMeasurementObjects = try? self.getDeliveryMeasurementObjects(since: continuityStartDate - maximumInterval)
+            {
+                // Verify measurement timestamps are continuous
+                let areMeasurementsContinuous = recentDeliveryMeasurementObjects.reversed().isContinuous(
+                    from: continuityStartDate,
+                    to: date,
+                    within: maximumInterval
+                )
+                
+                self.areDeliveryMeasurementsValid = areMeasurementsContinuous
+                self.lastStoredDeliveryMeasurementValue = recentDeliveryMeasurementObjects.first?.storedDeliveryMeasurementValue
+                
+                return recentDeliveryMeasurementObjects
+            }
+        }
+        
+        self.areDeliveryMeasurementsValid = false
+        return []
+    }
+    
+    /**
+     Adds and persists a new delivery measurement value
+     
+     - parameter unitVolume: The delivery volume, in units
+     - parameter date:       The date of the delivery reading
+     - parameter completion: A closure called after the value was saved. This closure takes three arguments:
+     - value:                    The new delivery value, if it was saved
+     - previousValue:            The last new delivery measurement value
+     - areStoredValuesContinous: Whether the current recent state of the stored delivery data is considered continuous and reliable for deriving insulin effects after addition of this new value.
+     - error:                    An error object explaining why the value could not be saved
+     */
+    public func addDeliveryMeasurementValue(_ unitVolume: Double, at date: Date, completion: @escaping (_ error: DoseStoreError?) -> Void) {
+        persistenceController.managedObjectContext.perform {
+            // Perform some sanity checking of the new value against the most recent value.
+            if let previousValue = self.lastDeliveryMeasurementValue {
+                let isOutOfOrder = previousValue.endDate > date
+                let isSameDate = previousValue.endDate == date
+                let isConflicting = isSameDate && previousValue.unitVolume != unitVolume
+                if isOutOfOrder || isConflicting {
+                    self.log.error("Added inconsistent delivery measurement value of %{public}.3fU at %{public}@ after %{public}.3fU at %{public}@. Resetting.", unitVolume, String(describing: date), previousValue.unitVolume, String(describing: previousValue.endDate))
+                    
+                    // If we're violating consistency of the previous value, reset.
+                    do {
+                        try self.purgeDeliveryMeasurementObjects()
+                        self.totalDeliveryCache = nil
+                        self.clearDeliveryMeasurementNormalizedDoseCache()
+                        self.validateDeliveryMeasurementContinuity()
+                    } catch let error {
+                        self.log.error("Error purging measurement delivery objects: %{public}@", String(describing: error))
+                        completion(DoseStoreError(error: error as? PersistenceController.PersistenceControllerError))
+                        return
+                    }
+                    // If no error on purge, continue with creation
+                } else if isSameDate && previousValue.unitVolume == unitVolume {
+                    // Ignore duplicate adds
+                    self.log.error("Added duplicate measurement delivery value at %{public}@", String(describing: date))
+                    completion(nil)
+                    return
+                }
+            }
+            
+            let deliveryMeasurement = DeliveryMeasurement(context: self.persistenceController.managedObjectContext)
+            
+            deliveryMeasurement.volume = unitVolume
+            deliveryMeasurement.date = date
+            
+            let previousValue = self.lastStoredDeliveryMeasurementValue
+            if let basalProfile = self.basalProfile {
+                var newValues: [StoredDeliveryMeasurementValue] = []
+                
+                if let previousValue = previousValue {
+                    newValues.append(previousValue)
+                }
+                
+                newValues.append(deliveryMeasurement.storedDeliveryMeasurementValue)
+                
+                let newDoseEntries = newValues.doseEntries
+                
+                if self.recentDeliveryMeasurementNormalizedDoseEntriesCache != nil {
+                    self.recentDeliveryMeasurementNormalizedDoseEntriesCache = self.recentDeliveryMeasurementNormalizedDoseEntriesCache!.filterDateRange(self.cacheStartDate, nil)
+                    
+                    self.recentDeliveryMeasurementNormalizedDoseEntriesCache! += newDoseEntries.annotated(with: basalProfile)
+                }
+                
+                /// Increment the total delivery cache
+                if let totalDelivery = self.totalDeliveryCache {
+                    self.totalDeliveryCache = InsulinValue(
+                        startDate: totalDelivery.startDate,
+                        value: totalDelivery.value + newDoseEntries.totalDelivery
+                    )
+                }
+            }
+            
+            // Remove delivery measurement objects older than our cache length
+            try? self.purgeDeliveryMeasurementObjects(matching: self.purgeableValuesPredicate)
+            // Trigger a re-evaluation of continuity and update self.lastStoredDeliveryMeasurementValue
+            self.validateDeliveryMeasurementContinuity()
+            
+            // Reset our mutable pump events, since they are considered in addition to delivery measurements in dosing
+            if self.areDeliveryMeasurementsValid {
+                self.mutablePumpEventDoses = self.mutablePumpEventDoses.filterDateRange(Date(), nil)
+            }
+            
+            self.persistenceController.save { (error) -> Void in
+                var saveError: DoseStoreError?
+                
+                if let error = error {
+                    saveError = DoseStoreError(error: error)
+                }
+                
+                completion(saveError)
+                
+                NotificationCenter.default.post(name: .DoseStoreValuesDidChange, object: self)
+            }
+        }
+    }
+    
+    /// Retrieves delivery measurement values since the given date.
+    ///
+    /// - Parameters:
+    ///   - startDate: The earliest delivery measurement record date to include
+    ///   - limit: An optional limit to the number of values returned
+    ///   - completion: A closure called after retrieval
+    ///   - result: An array of delivery measurement values in reverse-chronological order
+    public func getDeliveryMeasurementValues(since startDate: Date, limit: Int? = nil, completion: @escaping (_ result: DoseStoreResult<[DeliveryMeasurementValue]>) -> Void) {
+        persistenceController.managedObjectContext.perform {
+            do {
+                let values = try self.getDeliveryMeasurementObjects(since: startDate, limit: limit).map { $0.storedDeliveryMeasurementValue }
+                
+                completion(.success(values))
+            } catch let error as DoseStoreError {
+                completion(.failure(error))
+            } catch {
+                assertionFailure()
+            }
+        }
+    }
+    
+    /// *This method should only be called from within a managed object context block.*
+    ///
+    /// - Parameters:
+    ///   - startDate: The earliest delivery measurement record date to include
+    ///   - limit: An optional limit to the number of objects returned
+    /// - Returns: An array of delivery measurement managed objects, in reverse-chronological order
+    /// - Throws: An error describing the failure to fetch objects
+    private func getDeliveryMeasurementObjects(since startDate: Date, limit: Int? = nil) throws -> [DeliveryMeasurement] {
+        let request: NSFetchRequest<DeliveryMeasurement> = DeliveryMeasurement.fetchRequest()
+        request.predicate = NSPredicate(format: "date >= %@", startDate as NSDate)
+        request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
+        
+        if let limit = limit {
+            request.fetchLimit = limit
+        }
+        
+        do {
+            return try persistenceController.managedObjectContext.fetch(request)
+        } catch let fetchError as NSError {
+            throw DoseStoreError.fetchError(description: fetchError.localizedDescription, recoverySuggestion: fetchError.localizedRecoverySuggestion)
+        }
+    }
+    
+    /// Retrieves normalized dose values derived from delivery measurement readings
+    ///
+    /// *This method should only be called from within a managed object context block.*
+    ///
+    /// - Parameters:
+    ///   - start: The earliest date of entries to include
+    ///   - end: The latest date of entries to include, defaulting to the distant future.
+    /// - Returns: An array of normalized entries
+    /// - Throws: A DoseStoreError describing a failure
+    private func getNormalizedDeliveryMeasurementDoseEntries(start: Date, end: Date? = nil) throws -> [DoseEntry] {
+        if let normalizedDoses = self.recentDeliveryMeasurementNormalizedDoseEntriesCache, let firstDoseDate = normalizedDoses.first?.startDate, firstDoseDate <= start {
+            return normalizedDoses.filterDateRange(start, end)
+        } else {
+            guard let basalProfile = self.basalProfile else {
+                throw DoseStoreError.configurationError
+            }
+            
+            let doses = try self.getDeliveryMeasurementObjects(since: start).reversed().doseEntries
+            
+            let normalizedDoses = doses.annotated(with: basalProfile)
+            self.recentDeliveryMeasurementNormalizedDoseEntriesCache = normalizedDoses
+            return normalizedDoses.filterDateRange(start, end)
+        }
+    }
+    
+    
+    /**
+     Deletes a persisted delivery measurement value
+     
+     - parameter value:         The value to delete
+     - parameter completion:    A closure called after the value was deleted. This closure takes two arguments:
+     - parameter deletedValues: An array of removed values
+     - parameter error:         An error object explaining why the value could not be deleted
+     */
+    public func deleteDeliveryMeasurementValue(_ value: DeliveryMeasurementValue, completion: @escaping (_ deletedValues: [DeliveryMeasurementValue], _ error: DoseStoreError?) -> Void) {
+        persistenceController.managedObjectContext.perform {
+            var deletedObjects = [DeliveryMeasurementValue]()
+            if  let storedValue = value as? StoredDeliveryMeasurementValue,
+                let objectID = self.persistenceController.managedObjectContext.persistentStoreCoordinator?.managedObjectID(forURIRepresentation: storedValue.objectIDURL),
+                let object = try? self.persistenceController.managedObjectContext.existingObject(with: objectID)
+            {
+                self.persistenceController.managedObjectContext.delete(object)
+                deletedObjects.append(storedValue)
+                self.validateDeliveryMeasurementContinuity()
+            }
+            
+            self.persistenceController.save { (error) in
+                self.clearDeliveryMeasurementNormalizedDoseCache()
+                completion(deletedObjects, DoseStoreError(error: error))
+                NotificationCenter.default.post(name: .DoseStoreValuesDidChange, object: self)
+            }
+        }
+    }
+    
+    /// Deletes all persisted delivery measurement values
+    ///
+    /// - Parameter completion: A closure called after all the values are deleted. This closure takes a single argument:
+    /// - Parameter error: An error explaining why the deletion failed
+    public func deleteAllDeliveryMeasurementValues(_ completion: @escaping (_ error: DoseStoreError?) -> Void) {
+        persistenceController.managedObjectContext.perform {
+            do {
+                self.log.info("Deleting all delivery measurement values")
+                try self.purgeDeliveryMeasurementObjects()
+                
+                self.persistenceController.save { (error) in
+                    self.totalDeliveryCache = nil
+                    self.clearDeliveryMeasurementNormalizedDoseCache()
+                    self.validateDeliveryMeasurementContinuity()
+                    
+                    completion(DoseStoreError(error: error))
+                    NotificationCenter.default.post(name: .DoseStoreValuesDidChange, object: self)
+                }
+            } catch let error as PersistenceController.PersistenceControllerError {
+                completion(DoseStoreError(error: error))
+            } catch {
+                assertionFailure()
+            }
+        }
+    }
+    
+    /**
+     Removes delivery measurement objects older than the recency predicate, and re-evaluates the continuity of the remaining objects
+     
+     *This method should only be called from within a managed object context block.*
+     
+     - throws: PersistenceController.PersistenceControllerError.coreDataError if the delete request failed
+     */
+    private func purgeDeliveryMeasurementObjects(matching predicate: NSPredicate? = nil) throws {
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: DeliveryMeasurement.entity().name!)
+        fetchRequest.predicate = predicate
+        
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        deleteRequest.resultType = .resultTypeObjectIDs
+        
+        do {
+            if let result = try persistenceController.managedObjectContext.execute(deleteRequest) as? NSBatchDeleteResult,
+                let objectIDs = result.result as? [NSManagedObjectID],
+                objectIDs.count > 0
+            {
+                let changes = [NSDeletedObjectsKey: objectIDs]
+                NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [persistenceController.managedObjectContext])
+                self.validateDeliveryMeasurementContinuity()
+            }
+        } catch let error as NSError {
+            throw PersistenceController.PersistenceControllerError.coreDataError(error)
+        }
+    }
+}
 
 // MARK: - Pump Event Operations
 extension DoseStore {
@@ -1051,8 +1373,10 @@ extension DoseStore {
                 // Reservoir data is used only if its continuous and we haven't seen pump events since the last reservoir reading
                 if self.areReservoirValuesValid &&
                     self.lastAddedPumpEvents.timeIntervalSince(self.lastStoredReservoirValue?.startDate ?? .distantPast) < 0 {
+                    self.log.info("Using reservoir data")
                     doses = try self.getNormalizedReservoirDoseEntries(start: start, end: end)
                 } else {
+                    self.log.info("Using event data")
                     doses = try self.getNormalizedPumpEventDoseEntries(start: start, end: end)
                 }
 

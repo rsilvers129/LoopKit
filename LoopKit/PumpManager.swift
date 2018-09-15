@@ -39,6 +39,8 @@ public protocol PumpManagerDelegate: class {
 
     func pumpManager(_ pumpManager: PumpManager, didReadReservoirValue units: Double, at date: Date, completion: @escaping (_ result: PumpManagerResult<(newValue: ReservoirValue, lastValue: ReservoirValue?, areStoredValuesContinuous: Bool)>) -> Void)
 
+    func pumpManager(_ pumpManager: PumpManager, didReadDeliveryMeasurementValue units: Double, at date: Date, completion: @escaping (_ error: Error?) -> Void)
+
     func pumpManager(_ pumpManager: PumpManager, didAdjustPumpClockBy adjustment: TimeInterval)
 
     func pumpManagerDidUpdatePumpBatteryChargeRemaining(_ pumpManager: PumpManager, oldValue: Double?)
@@ -50,6 +52,8 @@ public protocol PumpManagerDelegate: class {
     func startDateToFilterNewPumpEvents(for manager: PumpManager) -> Date
 
     func startDateToFilterNewReservoirEvents(for manager: PumpManager) -> Date
+    
+    func startDateToFilterNewDeliveryMeasurements(for manager: PumpManager) -> Date
 }
 
 

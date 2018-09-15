@@ -207,6 +207,86 @@ extension Collection where Element: ReservoirValue {
     }
 }
 
+extension Collection where Element: DeliveryMeasurementValue {
+    /**
+     Converts a continuous, chronological sequence of delivery measurements to a sequence of doses
+     
+     This is an O(n) operation.
+     
+     - returns: An array of doses
+     */
+    var doseEntries: [DoseEntry] {
+        var doses: [DoseEntry] = []
+        var previousValue: Element?
+        
+        let numberFormatter = NumberFormatter()
+        numberFormatter.numberStyle = .decimal
+        numberFormatter.maximumFractionDigits = 3
+        
+        for value in self {
+            if let previousValue = previousValue {
+                let volumeIncrease = value.unitVolume - previousValue.unitVolume
+                let duration = value.startDate.timeIntervalSince(previousValue.startDate)
+                
+                if duration > 0 && 0 <= volumeIncrease {
+                    doses.append(DoseEntry(
+                        type: .tempBasal,
+                        startDate: previousValue.startDate,
+                        endDate: value.startDate,
+                        value: volumeIncrease,
+                        unit: .units
+                    ))
+                }
+            }
+            
+            previousValue = value
+        }
+        
+        return doses
+    }
+    
+    /**
+     Whether a span of chronological delivery measurement values is considered continuous and therefore reliable.
+     
+     - parameter startDate:       The beginning of the interval in which to validate continuity
+     - parameter endDate:         The end of the interval in which to validate continuity
+     - parameter maximumDuration: The maximum interval to consider reliable for a delivery measurement derived dose
+     
+     - returns: Whether the delivery measurement values meet the critera for continuity
+     */
+    func isContinuous(from start: Date?, to end: Date, within maximumDuration: TimeInterval) -> Bool {
+        guard let firstValue = self.first else {
+            return false
+        }
+        
+        // The first value has to be at least as old as the start date, as a reference point.
+        let startDate = start ?? firstValue.endDate
+        guard firstValue.endDate <= startDate else {
+            return false
+        }
+        
+        var lastValue = firstValue
+        
+        for value in self {
+            defer {
+                lastValue = value
+            }
+            
+            // Volume and interval validation only applies for values in the specified range,
+            guard value.endDate >= startDate && value.startDate <= end else {
+                continue
+            }
+            
+            // Ensure no more than the maximum interval has passed
+            guard value.startDate.timeIntervalSince(lastValue.endDate) <= maximumDuration else {
+                return false
+            }
+        }
+        
+        return true
+    }
+}
+
 
 extension DoseEntry {
     /// Annotates a dose with the context of the scheduled basal rate
