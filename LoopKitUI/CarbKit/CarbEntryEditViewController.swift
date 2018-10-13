@@ -108,11 +108,13 @@ public final class CarbEntryEditViewController: UITableViewController {
 
     fileprivate enum Row: Int {
         case value
+        case protein
+        case fat
         case date
         case foodType
         case absorptionTime
 
-        static let count = 4
+        static let count = 6
     }
 
     public override func numberOfSections(in tableView: UITableView) -> Int {
@@ -140,6 +142,38 @@ public final class CarbEntryEditViewController: UITableViewController {
 
             cell.delegate = self
 
+            return cell
+        case .protein:
+            let cell = tableView.dequeueReusableCell(withIdentifier: DecimalTextFieldTableViewCell.className) as! DecimalTextFieldTableViewCell
+            
+            if let quantity = quantity {
+                cell.number = NSNumber(value: quantity.doubleValue(for: preferredUnit))
+            }
+            cell.textField.isEnabled = isSampleEditable
+            cell.unitLabel?.text = String(describing: preferredUnit)
+            
+            if originalCarbEntry == nil {
+                cell.textField.becomeFirstResponder()
+            }
+            
+            cell.delegate = self
+            
+            return cell
+        case .fat:
+            let cell = tableView.dequeueReusableCell(withIdentifier: DecimalTextFieldTableViewCell.className) as! DecimalTextFieldTableViewCell
+            
+            if let quantity = quantity {
+                cell.number = NSNumber(value: quantity.doubleValue(for: preferredUnit))
+            }
+            cell.textField.isEnabled = isSampleEditable
+            cell.unitLabel?.text = String(describing: preferredUnit)
+            
+            if originalCarbEntry == nil {
+                cell.textField.becomeFirstResponder()
+            }
+            
+            cell.delegate = self
+            
             return cell
         case .date:
             let cell = tableView.dequeueReusableCell(withIdentifier: DateAndDurationTableViewCell.className) as! DateAndDurationTableViewCell
