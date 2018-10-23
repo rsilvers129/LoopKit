@@ -132,6 +132,9 @@ public final class CarbEntryEditViewController: UITableViewController {
             if squareWaveDuration > 16 { // Set some reasonable max.
                 squareWaveDuration = 16
             }
+            if squareWaveDuration < 4 { // Ewa told me never less than 4 hours.
+                squareWaveDuration = 4
+            }
      
             if carbEquivilant >= 1 {
                 return NewCarbEntry(
