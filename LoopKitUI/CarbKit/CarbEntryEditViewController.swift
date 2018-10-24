@@ -4,7 +4,7 @@
 //
 //  Created by Nathan Racklyeft on 1/15/16.
 //  Copyright © 2016 Nathan Racklyeft. All rights reserved.
-//
+//  Fat-Protein Unit code by Robert Silvers, 10/2018.
 
 import UIKit
 import HealthKit
@@ -103,8 +103,6 @@ public final class CarbEntryEditViewController: UITableViewController {
             
             /// See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2901033/
             
-            //let FPCaloriesRatio = 100.0
-            //let onsetDelay = 60.0
             let proteinCalories = proteinQuantity! * 4
             let fatCalories = fatQuantity! * 9
             var lowCarbMultiplier: Double = Double(carbQuantity!)
@@ -132,8 +130,8 @@ public final class CarbEntryEditViewController: UITableViewController {
             if squareWaveDuration > 16 { // Set some reasonable max.
                 squareWaveDuration = 16
             }
-            if squareWaveDuration < 4 { // Ewa told me never less than 4 hours.
-                squareWaveDuration = 4
+            if squareWaveDuration < 7 { // Ewa told me never less than 4 hours for manual pump.
+                squareWaveDuration = 7  // But since this is carb-absorption, have to add 3.
             }
      
             if carbEquivilant >= 1 {
