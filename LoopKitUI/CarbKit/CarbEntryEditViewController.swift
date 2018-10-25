@@ -129,8 +129,8 @@ public final class CarbEntryEditViewController: UITableViewController {
             
             var squareWaveDuration = 2.0 + FPU + 3.0
      
-            if squareWaveDuration > 16 { // Set some reasonable max.
-                squareWaveDuration = 16
+            if squareWaveDuration > 20 { // Set some reasonable max.
+                squareWaveDuration = 20
             }
             if squareWaveDuration < 7 { // Ewa told me never less than 4 hours for manual pump.
                 squareWaveDuration = 7  // But since this is carb-absorption, have to add 3.
