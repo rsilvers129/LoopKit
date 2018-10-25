@@ -98,7 +98,9 @@ public final class CarbEntryEditViewController: UITableViewController {
             let absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.medium
         {
             if let o = originalCarbEntry, o.quantity == quantity && o.startDate == date && o.foodType == foodType && o.absorptionTime == absorptionTime {
-                if proteinQuantity == 0 && fatQuantity == 0 return nil  // No changes were made
+                if ((proteinQuantity == 0) && (fatQuantity == 0)) {
+                    return nil  // No changes were made
+                }
             }
             
             /// See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2901033/
