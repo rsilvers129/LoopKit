@@ -238,7 +238,7 @@ public final class CarbEntryEditViewController: UITableViewController {
             let cell = tableView.dequeueReusableCell(withIdentifier: DateAndDurationTableViewCell.className) as! DateAndDurationTableViewCell
 
             cell.titleLabel.text = LocalizedString("Date", comment: "Title of the carb entry date picker cell")
-            cell.datePicker.isEnabled = false//isSampleEditable
+            cell.datePicker.isEnabled = isSampleEditable
             cell.datePicker.datePickerMode = .dateAndTime
             cell.datePicker.maximumDate = Date(timeIntervalSinceNow: maximumDateFutureInterval)
             cell.datePicker.minuteInterval = 1
@@ -308,7 +308,7 @@ public final class CarbEntryEditViewController: UITableViewController {
         tableView.beginUpdates()
         hideDatePickerCells(excluding: indexPath)
         return indexPath
-    }
+    } // RSS FIX Date selected there.
 
     public override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         switch tableView.cellForRow(at: indexPath) {
@@ -341,7 +341,7 @@ public final class CarbEntryEditViewController: UITableViewController {
             }
         }
     }
-
+    // When Add/Edit carb and hit "save" button, this gets called.
     public override func shouldPerformSegue(withIdentifier identifier: String, sender: Any?) -> Bool {
         self.tableView.endEditing(true)
 
@@ -359,11 +359,12 @@ public final class CarbEntryEditViewController: UITableViewController {
         }
 
         // RSS - Allow one to save if protein or fat is entered, even if carb is 0.
-        guard let cq = carbQuantity, let fq = fatQuantity, let pq = proteinQuantity, ((cq > 0.1) || (fq > 0.0) || (pq > 0.0)) else {
+        // Have to check "quantity" for carb because it means original quantity exists.
+        guard let quantity = quantity, let fq = fatQuantity, let pq = proteinQuantity, (quantity.doubleValue(for: HKUnit.gram()) > 0 || (fq > 0.0) || (pq > 0.0)) else {
             return false
         }
 
-        guard quantity?.compare(maxQuantity) != .orderedDescending else {
+        guard quantity.compare(maxQuantity) != .orderedDescending else {
             navigationDelegate.showMaxQuantityValidationWarning(for: self, maxQuantityGrams: maxQuantity.doubleValue(for: .gram()))
             return false
         }
