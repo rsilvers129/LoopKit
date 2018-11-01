@@ -115,19 +115,23 @@ public final class CarbEntryEditViewController: UITableViewController {
             // This is based on medical paper data that extra insulin is
             // most important for high-carb meals.
      
+            /*
             if carbQuantity! >= 40 {
                 lowCarbMultiplier = 1.0
             } else {
                 lowCarbMultiplier = (carbQuantity! / 80.0) + 0.5
             }
+            */ // This is experimental so comment out for now pending more discussion.
+            lowCarbMultiplier = 1.0
+            
      
             let FPU = Double(proteinCalories + fatCalories) / Double(FPCaloriesRatio)
      
             let carbEquivilant = FPU * 10 * lowCarbMultiplier
      
-                    /*The first two hours is to generalize the research-paper equation. But then add 3 more hours to the Loop absorption time to better mimic the effect of the duration of a pump square-wave (because the insulin will still have significant effect for about three hours after the square-wave ends). This does not need to be exact because individuals will tune it to their personal response using the FPU-Ratio setting.*/
+                    /*The first two hours is to generalize the research-paper equation. But then add 3 more hours to the Loop absorption time to better mimic the effect of the duration of a pump square-wave (because the insulin will still have significant effect for about three hours after the square-wave ends). This does not need to be exact because individuals will tune it to their personal response using the FPU-Ratio setting. Finally, multiply by 0.6667 as the inverse of the 1.5x scaler that Loop applies to inputted durations. */
             
-            var squareWaveDuration = 2.0 + FPU + 3.0
+            var squareWaveDuration = (2.0 + FPU + 3.0) * 0.6667
      
             if squareWaveDuration > 20 { // Set some reasonable max.
                 squareWaveDuration = 20
