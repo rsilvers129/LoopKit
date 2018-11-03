@@ -75,7 +75,7 @@ public final class CarbEntryEditViewController: UITableViewController {
     
     public var updatedCarbEntry: NewCarbEntry? {
         if  let quantity = quantity,
-            let absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.fast // RSS fast for FPU
+            let absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.medium
         {
             if let o = originalCarbEntry, o.quantity == quantity && o.startDate == date && o.foodType == foodType && o.absorptionTime == absorptionTime {
                 return nil  // No changes were made
@@ -277,7 +277,7 @@ public final class CarbEntryEditViewController: UITableViewController {
                 let cell = tableView.dequeueReusableCell(withIdentifier: FoodTypeShortcutCell.className, for: indexPath) as! FoodTypeShortcutCell
 
                 if absorptionTime == nil {
-                    cell.selectionState = .fast // RSS - fast for FPU.
+                    cell.selectionState = .medium
                 }
 
                 cell.delegate = self
@@ -292,7 +292,7 @@ public final class CarbEntryEditViewController: UITableViewController {
             cell.datePicker.datePickerMode = .countDownTimer
             cell.datePicker.minuteInterval = Int(absorptionTimePickerInterval.minutes)
 
-            if let duration = absorptionTime ?? defaultAbsorptionTimes?.fast { // RSS - fast for FPU.
+            if let duration = absorptionTime ?? defaultAbsorptionTimes?.medium {
                 cell.duration = duration
             }
 
@@ -304,7 +304,7 @@ public final class CarbEntryEditViewController: UITableViewController {
     }
 
     public override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        return LocalizedString("Choose a longer absorption time for larger meals, or those containing fats and proteins. This is only guidance to the algorithm and need not be exact.", comment: "Carb entry section footer text explaining absorption time")
+        return LocalizedString("Optional Fat and protein entry will result in additional dosing over an extended duration for fat and protein calories, and will override manual entry of duration of absorption.", comment: "Carb entry section footer text explaining absorption time")
     }
 
     // MARK: - UITableViewDelegate
@@ -356,7 +356,7 @@ public final class CarbEntryEditViewController: UITableViewController {
             return super.shouldPerformSegue(withIdentifier: identifier, sender: sender)
         }
 
-        guard let absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.fast else { // RSS - fast for FPU.
+        guard let absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.medium else {
             return false
         }
         guard absorptionTime <= maxAbsorptionTime else {
