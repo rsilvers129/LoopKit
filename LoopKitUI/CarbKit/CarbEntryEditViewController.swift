@@ -55,9 +55,9 @@ public final class CarbEntryEditViewController: UITableViewController {
 
     fileprivate var quantity: HKQuantity? 
     
-    fileprivate var carbQuantity: Double? = 0.0
+    var carbQuantity: Double? = 0.0
     
-    fileprivate var fatQuantity: Double? = 0.0
+    var fatQuantity: Double? = 0.0
     
     fileprivate var proteinQuantity: Double? = 0.0
     
