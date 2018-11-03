@@ -23,7 +23,7 @@
 "carb-entry-title-edit" = "Редактировать запись углеводов";
 
 /* Carb entry section footer text explaining absorption time */
-"Optional Fat and protein entry will result in additional dosing over an extended duration for fat and protein calories, and will override manual entry of duration of absorption." = "Необязательный ввод жиров и белков приведет к дополнительному дозированию в течение продолжительной продолжительности для жировых и белковых калорий и будет отменять ручной ввод продолжительности абсорбции.";
+"Optional Fat and protein entry will result in additional dosing over an extended duration for fat and protein calories, and will override manual entry of duration of absorption." = "Опциональное введение жиров и белков приведет к дополнительному дозированию в течение большего промежутка времени для жировых и белковых калорий и будет иметь приоритет над вручную заданной продолжительностью абсорбции.";
 
 /* The format string describing the date of a COB value. The first format argument is the localized date. */
 "com.loudnate.CarbKit.COBDateLabel" = "В %1$@";
