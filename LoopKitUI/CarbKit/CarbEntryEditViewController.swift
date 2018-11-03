@@ -133,11 +133,13 @@ public final class CarbEntryEditViewController: UITableViewController {
             
             var squareWaveDuration = (2.0 + FPU + 3.0) * 0.6667
      
-            if squareWaveDuration > 20 { // Set some reasonable max.
-                squareWaveDuration = 20
+            if squareWaveDuration > 16 { // Set some reasonable max.
+                squareWaveDuration = 16
             }
-            if squareWaveDuration < 7 { // Ewa told me never less than 4 hours for manual pump.
-                squareWaveDuration = 7  // But since this is carb-absorption, have to add 3.
+            if squareWaveDuration < 4 { // Ewa told me never less than 4 hours for manual pump.
+                squareWaveDuration = 4  // But since this is carb-absorption, have to add ~3. But then
+                                        // Multiply by 0.667 to invert the Loop 1.5x factor. About 4.5,
+                                        // but round back down to 4 (and Loop will make that 6).
             }
      
             if carbEquivilant >= 1 {
