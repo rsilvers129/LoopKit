@@ -81,7 +81,7 @@ public final class CarbEntryEditViewController: UITableViewController {
                 return nil  // No changes were made
             }
             
-            if ((proteinQuantity > 0) || (fatQuantity > 0)) { // RSS - If fat and protein were entered, then carbs are always fast.
+            if ((proteinQuantity > 0.0) || (fatQuantity > 0.0)) { // RSS - If fat and protein were entered, then carbs are always fast.
                 return NewCarbEntry(
                     quantity: quantity,
                     startDate: date,
