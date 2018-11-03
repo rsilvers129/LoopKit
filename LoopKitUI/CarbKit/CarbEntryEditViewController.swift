@@ -292,7 +292,7 @@ public final class CarbEntryEditViewController: UITableViewController {
             cell.datePicker.datePickerMode = .countDownTimer
             cell.datePicker.minuteInterval = Int(absorptionTimePickerInterval.minutes)
 
-            if let duration = absorptionTime ?? defaultAbsorptionTimes?.fast {
+            if let duration = absorptionTime ?? defaultAbsorptionTimes?.medium {
                 cell.duration = duration
             }
 
@@ -403,12 +403,16 @@ extension CarbEntryEditViewController: TextFieldTableViewCellDelegate {
         case .fat?:
             if let cell = cell as? FatDecimalTextFieldTableViewCell, let number = cell.number {
                 fatQuantity = Double(number.doubleValue)
+                self.absorptionTime = .fast
+                self.foodTypeShortcutCellDidUpdateSelection(self) // RSS - update duration to fast if FPU.
             } else {
                 fatQuantity = 0.0
             }
         case .protein?:
             if let cell = cell as? ProteinDecimalTextFieldTableViewCell, let number = cell.number {
                 proteinQuantity = Double(number.doubleValue)
+                self.absorptionTime = .fast
+                self.foodTypeShortcutCellDidUpdateSelection(self) // RSS - update duration to fast if FPU.
             } else {
                 proteinQuantity = 0.0
             }
