@@ -403,7 +403,7 @@ extension CarbEntryEditViewController: TextFieldTableViewCellDelegate {
         case .fat?:
             if let cell = cell as? FatDecimalTextFieldTableViewCell, let number = cell.number {
                 fatQuantity = Double(number.doubleValue)
-                self.absorptionTime = .fast
+                self.absorptionTime = 7200
                 self.foodTypeShortcutCellDidUpdateSelection(self) // RSS - update duration to fast if FPU.
             } else {
                 fatQuantity = 0.0
@@ -411,7 +411,7 @@ extension CarbEntryEditViewController: TextFieldTableViewCellDelegate {
         case .protein?:
             if let cell = cell as? ProteinDecimalTextFieldTableViewCell, let number = cell.number {
                 proteinQuantity = Double(number.doubleValue)
-                self.absorptionTime = .fast
+                self.absorptionTime = 7200
                 self.foodTypeShortcutCellDidUpdateSelection(self) // RSS - update duration to fast if FPU.
             } else {
                 proteinQuantity = 0.0
