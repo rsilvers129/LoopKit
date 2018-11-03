@@ -75,23 +75,31 @@ public final class CarbEntryEditViewController: UITableViewController {
     
     public var updatedCarbEntry: NewCarbEntry? {
         if  let quantity = quantity,
-            var absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.medium
+            let absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.medium
         {
             if let o = originalCarbEntry, o.quantity == quantity && o.startDate == date && o.foodType == foodType && o.absorptionTime == absorptionTime {
                 return nil  // No changes were made
             }
             
             if ((proteinQuantity > 0) || (fatQuantity > 0)) { // RSS - If fat and protein were entered, then carbs are always fast.
-                absorptionTime = 7200
+                return NewCarbEntry(
+                    quantity: quantity,
+                    startDate: date,
+                    foodType: foodType,
+                    absorptionTime: 7200,
+                    externalID: originalCarbEntry?.externalID
+                )
+            } else {
+                return NewCarbEntry(
+                    quantity: quantity,
+                    startDate: date,
+                    foodType: foodType,
+                    absorptionTime: absorptionTime,
+                    externalID: originalCarbEntry?.externalID
+                )
             }
             
-            return NewCarbEntry(
-                quantity: quantity,
-                startDate: date,
-                foodType: foodType,
-                absorptionTime: absorptionTime,
-                externalID: originalCarbEntry?.externalID
-            )
+        
         } else {
             return nil
         }
