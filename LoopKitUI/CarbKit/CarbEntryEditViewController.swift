@@ -75,7 +75,7 @@ public final class CarbEntryEditViewController: UITableViewController {
     
     public var updatedCarbEntry: NewCarbEntry? {
         if  let quantity = quantity,
-            let absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.medium
+            let absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.fast // RSS fast for FPU
         {
             if let o = originalCarbEntry, o.quantity == quantity && o.startDate == date && o.foodType == foodType && o.absorptionTime == absorptionTime {
                 return nil  // No changes were made
@@ -277,7 +277,7 @@ public final class CarbEntryEditViewController: UITableViewController {
                 let cell = tableView.dequeueReusableCell(withIdentifier: FoodTypeShortcutCell.className, for: indexPath) as! FoodTypeShortcutCell
 
                 if absorptionTime == nil {
-                    cell.selectionState = .medium
+                    cell.selectionState = .fast // RSS - fast for FPU.
                 }
 
                 cell.delegate = self
@@ -292,7 +292,7 @@ public final class CarbEntryEditViewController: UITableViewController {
             cell.datePicker.datePickerMode = .countDownTimer
             cell.datePicker.minuteInterval = Int(absorptionTimePickerInterval.minutes)
 
-            if let duration = absorptionTime ?? defaultAbsorptionTimes?.medium {
+            if let duration = absorptionTime ?? defaultAbsorptionTimes?.fast { // RSS - fast for FPU.
                 cell.duration = duration
             }
 
@@ -356,7 +356,7 @@ public final class CarbEntryEditViewController: UITableViewController {
             return super.shouldPerformSegue(withIdentifier: identifier, sender: sender)
         }
 
-        guard let absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.medium else {
+        guard let absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.fast else { // RSS - fast for FPU.
             return false
         }
         guard absorptionTime <= maxAbsorptionTime else {
@@ -403,16 +403,12 @@ extension CarbEntryEditViewController: TextFieldTableViewCellDelegate {
         case .fat?:
             if let cell = cell as? FatDecimalTextFieldTableViewCell, let number = cell.number {
                 fatQuantity = Double(number.doubleValue)
-                self.absorptionTime = 7200
-                self.foodTypeShortcutCellDidUpdateSelection(self) // RSS - update duration to fast if FPU.
             } else {
                 fatQuantity = 0.0
             }
         case .protein?:
             if let cell = cell as? ProteinDecimalTextFieldTableViewCell, let number = cell.number {
                 proteinQuantity = Double(number.doubleValue)
-                self.absorptionTime = 7200
-                self.foodTypeShortcutCellDidUpdateSelection(self) // RSS - update duration to fast if FPU.
             } else {
                 proteinQuantity = 0.0
             }
