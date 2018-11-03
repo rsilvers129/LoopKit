@@ -55,9 +55,9 @@ public final class CarbEntryEditViewController: UITableViewController {
 
     fileprivate var quantity: HKQuantity? 
     
-    var carbQuantity: Double? = 0.0
+    fileprivate var carbQuantity: Double? = 0.0
     
-    var fatQuantity: Double? = 0.0
+    fileprivate var fatQuantity: Double? = 0.0
     
     fileprivate var proteinQuantity: Double? = 0.0
     
@@ -79,6 +79,10 @@ public final class CarbEntryEditViewController: UITableViewController {
         {
             if let o = originalCarbEntry, o.quantity == quantity && o.startDate == date && o.foodType == foodType && o.absorptionTime == absorptionTime {
                 return nil  // No changes were made
+            }
+            
+            if ((proteinQuantity > 0) || (fatQuantity > 0)) { // RSS - If fat and protein were entered, then carbs are always fast.
+                absorptionTime = 7200
             }
             
             return NewCarbEntry(
