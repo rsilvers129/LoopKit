@@ -75,7 +75,7 @@ public final class CarbEntryEditViewController: UITableViewController {
     
     public var updatedCarbEntry: NewCarbEntry? {
         if  let quantity = quantity,
-            let absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.medium
+            var absorptionTime = absorptionTime ?? defaultAbsorptionTimes?.medium
         {
             if let o = originalCarbEntry, o.quantity == quantity && o.startDate == date && o.foodType == foodType && o.absorptionTime == absorptionTime {
                 return nil  // No changes were made
