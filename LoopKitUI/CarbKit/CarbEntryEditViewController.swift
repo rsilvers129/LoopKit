@@ -292,7 +292,7 @@ public final class CarbEntryEditViewController: UITableViewController {
             cell.datePicker.datePickerMode = .countDownTimer
             cell.datePicker.minuteInterval = Int(absorptionTimePickerInterval.minutes)
 
-            if let duration = absorptionTime ?? defaultAbsorptionTimes?.medium {
+            if let duration = absorptionTime ?? defaultAbsorptionTimes?.fast {
                 cell.duration = duration
             }
 
